@@ -254,3 +254,79 @@ input[type='number']::-webkit-outer-spin-button {
 input[type='number'] {
   -moz-appearance: textfield; /* For Firefox */
 }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  @apply h-[calc(100%-30px)] overflow-y-auto;
+}
+
+.prose {
+  @apply max-w-full text-gray-900;
+}
+
+.prose h1 {
+  @apply mt-2 mb-2 text-3xl font-bold text-gray-900;
+}
+
+.prose h2 {
+  @apply mt-1 mb-1 text-2xl font-semibold text-gray-900;
+}
+
+.prose h3 {
+  @apply mt-[.5] mb-[.5] text-xl font-medium text-gray-900;
+}
+
+.prose p {
+  @apply mb-[.5] leading-relaxed text-gray-700;
+}
+
+.prose blockquote {
+  @apply rounded-r py-2 pl-4 italic text-gray-600;
+}
+
+.prose ul {
+  @apply mb-4 list-disc space-y-1 pl-6;
+}
+
+.prose ol {
+  @apply mb-4 list-decimal space-y-1 pl-6;
+}
+
+.prose li {
+  @apply text-gray-700;
+}
+
+.prose code {
+  /* @apply rounded bg-gray-100 px-1 py-0.5 font-mono text-sm text-pink-600; */
+}
+
+.prose pre {
+  /* @apply mb-4 overflow-x-auto rounded-lg bg-gray-900 p-4 text-gray-100; */
+}
+
+.prose pre code {
+  /* @apply bg-transparent p-0 text-gray-100; */
+}
+
+/* Focus styles */
+.ProseMirror:focus {
+  @apply outline-none;
+}
+
+/* Placeholder styles */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none text-gray-400;
+  height: 0;
+  float: left;
+}
