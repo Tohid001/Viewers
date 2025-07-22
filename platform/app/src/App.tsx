@@ -34,6 +34,7 @@ import createRoutes from './routes';
 import appInit from './appInit.js';
 import OpenIdConnectRoutes from './utils/OpenIdConnectRoutes';
 import { ShepherdJourneyProvider } from 'react-shepherd';
+import { useAuthEvent } from './hooks/useAuth';
 
 let commandsManager: CommandsManager,
   extensionManager: ExtensionManager,
@@ -63,6 +64,9 @@ function App({
   defaultModes = [],
 }) {
   const [init, setInit] = useState(null);
+
+  useAuthEvent();
+
   useEffect(() => {
     const run = async () => {
       appInit(config, defaultExtensions, defaultModes).then(setInit).catch(console.error);
