@@ -34,7 +34,7 @@ import createRoutes from './routes';
 import appInit from './appInit.js';
 import OpenIdConnectRoutes from './utils/OpenIdConnectRoutes';
 import { ShepherdJourneyProvider } from 'react-shepherd';
-import { useAuthEvent } from './hooks/useAuth';
+import { useAuthEvent } from './hooks/useAuthEvent';
 
 let commandsManager: CommandsManager,
   extensionManager: ExtensionManager,
