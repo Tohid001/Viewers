@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { RichTextEditor } from './components/RichTextEditor';
 import {
   Button,
@@ -37,6 +37,35 @@ function ReportPanel() {
   const studyId = searchParams.get('StudyInstanceUIDs');
   const storageKey = getStorageKey(studyId);
   const [content, setContent] = useState(localStorage.getItem(getStorageKey(studyId)));
+
+  const [isFooterOutOfView, setIsFooterOutOfView] = useState(false);
+  const footerRef = useRef(null);
+
+  useEffect(() => {
+    const footerElement = footerRef.current;
+    if (!footerElement) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsFooterOutOfView(entry.intersectionRatio < 1);
+      },
+      {
+        root: null,
+
+        rootMargin: '0px',
+
+        threshold: 1,
+      }
+    );
+
+    observer.observe(footerElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const handleDownload = async () => {
     try {
@@ -97,7 +126,9 @@ function ReportPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 pr-3 pl-2">
+    <div
+      className={`flex h-full w-full flex-col gap-4 pr-3 pl-2 ${isFooterOutOfView ? 'pb-[2.6rem]' : ''}`}
+    >
       <div className={`bg-bkg-med flex w-full items-start gap-4 p-2`}>
         <div className={`bg-bkg-med text-sm`}>
           <p className="font-bold text-gray-500">Patient Name</p>
@@ -132,7 +163,6 @@ function ReportPanel() {
         content={content}
         onChange={value => setContent(value)}
         placeholder="Start writing your report here..."
-        className="W-full flex-1"
         isEditable={isEditable}
       />
 
@@ -265,7 +295,10 @@ function ReportPanel() {
         </div>
       </div>
 
-      <div className={`bg-bkg-med flex w-full gap-8 p-2`}>
+      <div
+        ref={footerRef}
+        className={`bg-bkg-med flex w-full gap-8 p-2`}
+      >
         {!isEditable ? (
           <>
             <Button

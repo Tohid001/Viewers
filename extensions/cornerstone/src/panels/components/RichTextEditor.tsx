@@ -66,22 +66,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div
-      className={`h-[calc(100%-30px)] overflow-y-hidden rounded-lg border border-gray-200 bg-white shadow-sm ${className} ${
+      className={`flex flex-1 flex-col overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm ${className} ${
         !isEditable ? 'w-full' : ''
       }`}
     >
       {isEditable && <EditorToolbar editor={editor} />}
-      <div className="relative h-[calc(100%-30px)]">
-        <EditorContent
-          editor={editor}
-          className="h-[calc(100%-30px)] transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"
-        />
-        {editor.isEmpty && isEditable && (
-          <div className="pointer-events-none absolute top-4 left-4 text-gray-400">
-            {placeholder}
-          </div>
-        )}
-      </div>
+
+      <EditorContent
+        editor={editor}
+        className="flex-1 overflow-y-auto transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"
+      />
     </div>
   );
 };

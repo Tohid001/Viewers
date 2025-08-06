@@ -267,7 +267,7 @@ input[type='number'] {
 
 /* TipTap Editor Styles */
 .ProseMirror {
-  @apply h-[calc(100%-30px)] overflow-y-auto;
+  @apply h-full overflow-y-auto;
 }
 
 .prose {
