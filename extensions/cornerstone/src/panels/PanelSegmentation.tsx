@@ -1,8 +1,13 @@
+/* eslint-disable react/display-name */
+/* eslint-disable react-hooks/rules-of-hooks */
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { RichTextEditor } from './components/RichTextEditor';
 import {
   Button,
+  Input,
+  Label,
+  Modal,
   Select,
   SelectContent,
   SelectItem,
@@ -12,12 +17,17 @@ import {
 } from '@ohif/ui-next';
 
 import { useSearchParams } from 'react-router-dom';
-import { getStorageKey } from './utils/getStorageKey';
+import { getReportContentKey, getTemplateStorageKey } from './utils/getStorageKey';
 import { useSystem } from '@ohif/core';
 import { usePatientInfo } from '@ohif/extension-default';
 // import { useReactToPrint } from 'react-to-print';
 // import html2pdf from 'html2pdf.js';
 import buetLogo from '../assets/images/buetLogo.png';
+import { uuidv4 } from '@cornerstonejs/core/utilities';
+import { ICreateTemplateModal, ITemplate } from './ReportPanel.types';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 const formatWithEllipsis = (str, maxLength) => {
   if (str?.length > maxLength) {
@@ -26,7 +36,15 @@ const formatWithEllipsis = (str, maxLength) => {
   return str;
 };
 
+/*
+TODO:  Will handle the ellipsis for select template menu later
+ */
+
 function ReportPanel() {
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ITemplate | null>(null);
+
   const { servicesManager } = useSystem();
   const componentRef = React.useRef<HTMLDivElement | null>(null);
   const { patientInfo } = usePatientInfo(servicesManager);
@@ -35,8 +53,9 @@ function ReportPanel() {
   const [isEditable, setIsEditable] = useState(false);
   const [searchParams] = useSearchParams();
   const studyId = searchParams.get('StudyInstanceUIDs');
-  const storageKey = getStorageKey(studyId);
-  const [content, setContent] = useState(localStorage.getItem(getStorageKey(studyId)));
+  const storageKey = getReportContentKey(studyId);
+  const templates = JSON.parse(localStorage.getItem(getTemplateStorageKey(studyId)) || '[]');
+  const [content, setContent] = useState(localStorage.getItem(getReportContentKey(studyId)));
 
   const [isFooterOutOfView, setIsFooterOutOfView] = useState(false);
   const footerRef = useRef(null);
@@ -142,24 +161,52 @@ function ReportPanel() {
         <div>
           <div className="text-sm font-bold text-gray-500">Select Report Template:</div>
           <Select
-            value={'template 0'}
-            onValueChange={() => {}}
+            value={selectedTemplate?.id || ''}
+            onValueChange={id => {
+              const template = templates.find((template: ITemplate) => template.id === id);
+              if (template) {
+                setSelectedTemplate(template);
+                setContent(template.content);
+              }
+            }}
+            open={isSelectOpen}
+            onOpenChange={setIsSelectOpen}
           >
-            <SelectTrigger className="text-primary h-8 w-36 bg-white text-sm">
-              <SelectValue />
+            <SelectTrigger className="text-primary max-w-36 h-8 truncate bg-white text-sm">
+              <SelectValue placeholder="Select a template" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="template 0">template 0</SelectItem>
-              <SelectItem value="template 1">template 1</SelectItem>
-              <SelectItem value="template 2">template 2</SelectItem>
-              <SelectItem value="template 3">template 3</SelectItem>
-              <SelectItem value="template 4">template 4</SelectItem>
+            <SelectContent className="max-w-48">
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setIsTemplateModalOpen(true);
+                  setIsSelectOpen(false);
+                }}
+              >
+                + Create New Template
+              </Button>
+
+              {!!templates.length &&
+                templates.map((template, index) => {
+                  return (
+                    <SelectItem
+                      key={template.id}
+                      value={template.id}
+                    >
+                      <div className="max-w-48 truncate pr-5">
+                        {formatWithEllipsis(template.name, 194)}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <RichTextEditor
+        key={selectedTemplate?.id}
         content={content}
         onChange={value => setContent(value)}
         placeholder="Start writing your report here..."
@@ -348,8 +395,177 @@ function ReportPanel() {
           </>
         )}
       </div>
+
+      <ReportPanel.CreateTemplateModal
+        isTemplateModalOpen={isTemplateModalOpen}
+        setIsTemplateModalOpen={setIsTemplateModalOpen}
+        studyId={studyId}
+      />
     </div>
   );
 }
+
+ReportPanel.CreateTemplateModal = ({
+  isTemplateModalOpen,
+  setIsTemplateModalOpen,
+  studyId,
+}: ICreateTemplateModal) => {
+  const isContentEmpty = (htmlContent: string): boolean => {
+    const textContent = htmlContent.replace(/<[^>]*>/g, '').trim();
+    return textContent.length === 0;
+  };
+
+  const templateSchema = z.object({
+    name: z
+      .string()
+      .min(1, 'Template name is required')
+      .min(3, 'Template name must be at least 3 characters')
+      .max(50, 'Template name must be less than 50 characters')
+      .regex(
+        /^[a-zA-Z0-9\s\-_]+$/,
+        'Template name can only contain letters, numbers, spaces, hyphens, and underscores'
+      ),
+    content: z
+      .string()
+      .min(1, 'Template content is required')
+      .refine(content => !isContentEmpty(content), {
+        message: 'Template content cannot be empty',
+      }),
+  });
+
+  type TemplateFormData = z.infer<typeof templateSchema>;
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting, touchedFields },
+  } = useForm<TemplateFormData>({
+    resolver: zodResolver(templateSchema),
+    defaultValues: {
+      name: '',
+      content: '',
+    },
+    mode: 'onTouched',
+  });
+
+  const contentValue = watch('content');
+
+  const onSubmit = async (data: TemplateFormData): Promise<void> => {
+    try {
+      if (isContentEmpty(data.content)) {
+        toast.error('Template content cannot be empty');
+        return;
+      }
+
+      const templates = JSON.parse(localStorage.getItem(templateStorageKey) || '[]') as ITemplate[];
+
+      const nameExists = templates.some(
+        template => template.name.toLowerCase() === data.name.toLowerCase()
+      );
+
+      if (nameExists) {
+        toast.error('A template with this name already exists!');
+        return;
+      }
+
+      const payload: ITemplate = {
+        id: uuidv4(),
+        name: data.name,
+        content: data.content,
+      };
+
+      templates.push(payload);
+      localStorage.setItem(templateStorageKey, JSON.stringify(templates));
+      toast.success('Template created successfully!', { duration: 1000 });
+
+      handleClose();
+    } catch (error) {
+      toast.error('Failed to create template. Please try again.');
+      console.error('Error creating template:', error);
+    }
+  };
+
+  const handleContentChange = (value: string) => {
+    setValue('content', value, {
+      shouldValidate: touchedFields.content,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  };
+
+  const templateStorageKey = getTemplateStorageKey(studyId);
+
+  const handleClose = () => {
+    setIsTemplateModalOpen(false);
+    reset();
+  };
+
+  return (
+    <Modal
+      containerClassName="max-w-3xl"
+      shouldCloseOnEsc={true}
+      isOpen={isTemplateModalOpen}
+      title={'Create New Report Template'}
+      onClose={handleClose}
+    >
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex h-[80vh] flex-col gap-3"
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="name">Name: </Label>
+          <Input
+            id="name"
+            placeholder="Enter Template Name"
+            type="text"
+            {...register('name')}
+            className={errors.name && touchedFields.name ? 'border-red-500' : ''}
+          />
+          {errors.name && touchedFields.name && (
+            <span className="text-sm text-red-500">{errors.name.message}</span>
+          )}
+        </div>
+
+        <div className="flex flex-1 flex-col gap-2">
+          <Label>Content: </Label>
+          <div className="flex flex-1 flex-col">
+            <RichTextEditor
+              content={contentValue}
+              onChange={handleContentChange}
+              placeholder="Start writing your report here..."
+              isEditable={true}
+            />
+          </div>
+          {errors.content && touchedFields.content && (
+            <span className="text-sm text-red-500">{errors.content.message}</span>
+          )}
+        </div>
+
+        <div className="bg-bkg-med flex w-full justify-end gap-8 p-2">
+          <Button
+            type="button"
+            size="lg"
+            variant="destructive"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="lg"
+            variant="default"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Creating...' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
 
 export default ReportPanel;
